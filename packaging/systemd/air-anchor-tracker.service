@@ -1,0 +1,13 @@
+[Unit]
+Description=Sawtooth Location TP Python
+After=network.target
+
+[Service]
+User=sawtooth
+Group=sawtooth
+EnvironmentFile=-/etc/default/air-anchor-tracker
+ExecStart=/usr/bin/air-anchor-tracker
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
