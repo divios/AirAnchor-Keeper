@@ -73,7 +73,7 @@ class Watcher:
             # Validate the response type
             if msg.message_type != Message.CLIENT_EVENTS:
                 print("Unexpected message type")
-                return
+                continue
 
             # Parse the response
             eventList = EventList()
