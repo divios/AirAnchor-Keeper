@@ -8,25 +8,29 @@ import concurrent.futures
 from sawtooth_sdk.protobuf.events_pb2 import EventSubscription, EventList
 from sawtooth_sdk.protobuf.client_event_pb2 import ClientEventsSubscribeRequest, ClientEventsSubscribeResponse
 from sawtooth_sdk.protobuf.validator_pb2 import Message
+from sawtooth_sdk.messaging.stream import Stream
+
+from air_anchor_tracker.data import MongoRepo
+
+def _validate_tcp_url(url: str):
+    return 'tcp://' + url if not url.startswith("tcp://") else url
+
 
 class Watcher:
     
-    def __init__(self, zmq_url, mongo_url, mongo_document, mongo_collection):
-        ctx = zmq.Context()
-        self._socket = ctx.socket(zmq.DEALER)
-        self._socket.connect(zmq_url)
+    def __init__(self, zmq_url, mongo_repo: MongoRepo):
+        url = _validate_tcp_url(zmq_url)
+        print("Initilizating zmq in {}".format(url))
+        self._connection = Stream(url)
         
-        client = MongoClient(mongo_url)
-        db = client[mongo_document]
-        self._collection = db[mongo_collection]
-        
+        self._mongo_repo = mongo_repo
         
     def start(self):
         print("Sending subscribe message")
-        self._send_subscribe_msg()
+        future = self._send_subscribe_msg()
         
-        self._validate_response_msg()
-        print("Subscribe succesfull")
+        self._validate_response_msg(future)
+        print("Subscribe successful")
     
         print("Starting main loop...")
         self._start_receive_loop()
@@ -41,26 +45,17 @@ class Watcher:
             subscriptions=[subscription]).SerializeToString()
         
         # Construct the message wrapper
-        correlation_id = "123" # This must be unique for all in-process requests
-        msg = Message(
-            correlation_id=correlation_id,
+        return self._connection.send(
             message_type=Message.CLIENT_EVENTS_SUBSCRIBE_REQUEST,
             content=request)
-
-        # Send the request
-        self._socket.send_multipart([msg.SerializeToString()])
                 
-    def _validate_response_msg(self):
-        resp = self._socket.recv_multipart()[-1]
-
-        # Parse the message wrapper
-        msg = Message()
-        msg.ParseFromString(resp)
+    def _validate_response_msg(self, future):
+        msg = future.result()
         
         # Validate the response type
         if msg.message_type != Message.CLIENT_EVENTS_SUBSCRIBE_RESPONSE:
             print("Unexpected message type")
-            return
+            exit(-1)
 
         # Parse the response
         response = ClientEventsSubscribeResponse()
@@ -72,12 +67,8 @@ class Watcher:
             return
                 
     def _start_receive_loop(self):
-        def inner_task():
-            resp = self._socket.recv_multipart()[-1]
-
-            # Parse the message wrapper
-            msg = Message()
-            msg.ParseFromString(resp)
+        while True:
+            msg = self._connection.receive().result()
 
             # Validate the response type
             if msg.message_type != Message.CLIENT_EVENTS:
@@ -85,15 +76,19 @@ class Watcher:
                 return
 
             # Parse the response
-            events = EventList()
-            events.ParseFromString(msg.content)
+            eventList = EventList()
+            eventList.ParseFromString(msg.content)
 
             print("Received events ------")
-            for event in events:
+            for event in eventList.events:
                 print(event)
+                for attribute in event.attributes:
+                    if (attribute.key) == 'key':
+                        key_value = attribute.value
+                    if (attribute.key) == 'hash':
+                        hash_value = attribute.value
+                        
+                self._mongo_repo.set_confirmed(key_value, hash_value)
                 # Save in mongo
             
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            while True:
-                executor.submit(inner_task)
         

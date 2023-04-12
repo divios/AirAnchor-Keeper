@@ -26,7 +26,8 @@ setup(
         "zmq",
         "pymongo",
         "sawtooth-sdk",
-        "colorlog"
+        "colorlog",
+        "protobuf==3.20.*"
     ],
     data_files=data_files,
     entry_points={

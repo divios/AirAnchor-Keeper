@@ -6,6 +6,7 @@ import pkg_resources
 import traceback;
 
 from air_anchor_tracker.watcher import Watcher
+from air_anchor_tracker.data import MongoRepo
 
 from sawtooth_sdk.processor.core import TransactionProcessor
 from sawtooth_sdk.processor.log import init_console_logging
@@ -33,7 +34,7 @@ def parse_args(args):
     )
     
     parser.add_argument(
-        '--mongo-document',
+        '--mongo-database',
         default='AirAnchorDocuments',
         help='Name of the mongo database document'
     )
@@ -53,8 +54,12 @@ def main(args=None):
     opts = parse_args(args)
     processor = None
     try:
-        Watcher(opts.zmq_url, opts.mongo_url,
-                opts.mongo_document, opts.mongo_collection).start()
+        
+        mongoRepo = MongoRepo(mongo_url=opts.mongo_url, 
+                      mongo_database=opts.mongo_database, mongo_collection=opts.mongo_collection)
+        
+        Watcher(opts.zmq_url, mongoRepo).start()
+        
     except KeyboardInterrupt:
         pass
     except Exception as e:  # pylint: disable=broad-except
