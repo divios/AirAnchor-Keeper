@@ -67,28 +67,31 @@ class Watcher:
             return
                 
     def _start_receive_loop(self):
-        while True:
-            msg = self._connection.receive().result()
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            while True:
+                msg = self._connection.receive().result()
+                print("received msg")
 
-            # Validate the response type
-            if msg.message_type != Message.CLIENT_EVENTS:
-                print("Unexpected message type")
-                continue
+                executor.submit(self._handle_event_msg, msg)
+                
+    def _handle_event_msg(self, msg):
+        # Validate the response type
+        if msg.message_type != Message.CLIENT_EVENTS:
+            print("Unexpected message type")
+            return
 
-            # Parse the response
-            eventList = EventList()
-            eventList.ParseFromString(msg.content)
+        # Parse the response
+        eventList = EventList()
+        eventList.ParseFromString(msg.content)
 
-            print("Received events ------")
-            for event in eventList.events:
-                print(event)
-                for attribute in event.attributes:
-                    if (attribute.key) == 'key':
-                        key_value = attribute.value
-                    if (attribute.key) == 'hash':
-                        hash_value = attribute.value
-                        
-                self._mongo_repo.set_confirmed(key_value, hash_value)
-                # Save in mongo
-            
-        
+        print("Received events ------")
+        for event in eventList.events:
+            print(event)
+            for attribute in event.attributes:
+                if (attribute.key) == 'key':
+                    key_value = attribute.value
+                if (attribute.key) == 'hash':
+                    hash_value = attribute.value
+                
+            # Update document in mongo
+            self._mongo_repo.set_confirmed(key_value, hash_value)
