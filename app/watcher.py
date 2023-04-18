@@ -2,6 +2,7 @@
 import zmq
 
 from pymongo import MongoClient
+from datetime import datetime
 
 import concurrent.futures
 
@@ -94,4 +95,6 @@ class Watcher:
                     hash_value = attribute.value
                 
             # Update document in mongo
-            self._mongo_repo.set_confirmed(key_value, hash_value)
+            self._mongo_repo.set_confirmed(key=key_value, 
+                                           hash=hash_value, 
+                                           confirmed_at=datetime.now())
