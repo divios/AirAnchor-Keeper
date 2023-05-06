@@ -25,7 +25,8 @@ class Watcher:
         print("Initilizating zmq in {}".format(url))
         self._connection = Stream(url)
         
-        self.rabbit_connection = rabbit_connection = BlockingConnection(ConnectionParameters(host=rabbit_url))
+        self.rabbit_url = rabbit_url
+        self.rabbit_connection =  BlockingConnection(ConnectionParameters(host=rabbit_url))
         
     def start(self):
         print("Sending subscribe message")
@@ -98,7 +99,7 @@ class Watcher:
             # Update document in mongo
             try:
                 if not self.rabbit_connection or self.rabbit_connection.is_closed:
-                    self.rabbit_connection = BlockingConnection(ConnectionParameters(host=rabbit_url))
+                    self.rabbit_connection = BlockingConnection(ConnectionParameters(host=self.rabbit_url))
                     
                 channel = self.rabbit_connection.channel()
                 
