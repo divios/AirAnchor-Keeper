@@ -97,6 +97,9 @@ class Watcher:
                 
             # Update document in mongo
             try:
+                if not self.rabbit_connection or self.rabbit_connection.is_closed:
+                    self.rabbit_connection = BlockingConnection(ConnectionParameters(host=rabbit_url))
+                    
                 channel = self.rabbit_connection.channel()
                 
                 channel.queue_declare(queue=hash_value)
