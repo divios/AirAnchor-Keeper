@@ -27,7 +27,8 @@ setup(
         "pymongo",
         "sawtooth-sdk",
         "colorlog",
-        "protobuf==3.20.*"
+        "protobuf==3.20.*",
+        "pika"
     ],
     data_files=data_files,
     entry_points={

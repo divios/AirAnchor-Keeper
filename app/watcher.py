@@ -1,4 +1,5 @@
 
+from pika import BlockingConnection, ConnectionParameters
 import zmq
 
 from pymongo import MongoClient
@@ -19,12 +20,12 @@ def _validate_tcp_url(url: str):
 
 class Watcher:
     
-    def __init__(self, zmq_url, mongo_repo: MongoRepo):
+    def __init__(self, zmq_url, rabbit_url: str):
         url = _validate_tcp_url(zmq_url)
         print("Initilizating zmq in {}".format(url))
         self._connection = Stream(url)
         
-        self._mongo_repo = mongo_repo
+        self.rabbit_connection = rabbit_connection = BlockingConnection(ConnectionParameters(host=rabbit_url))
         
     def start(self):
         print("Sending subscribe message")
@@ -95,6 +96,17 @@ class Watcher:
                     hash_value = attribute.value
                 
             # Update document in mongo
-            self._mongo_repo.set_confirmed(key=key_value, 
-                                           hash=hash_value, 
-                                           confirmed_at=datetime.now())
+            try:
+                channel = self.rabbit_connection.channel()
+                
+                channel.queue_declare(queue=hash_value)
+                channel.basic_publish(exchange='',
+                                                routing_key=hash_value,
+                                                body="empty")
+                
+                print("Sended ack to route {}".format(hash_value))
+                
+            except Exception as e:
+                print(e)
+            
+            
