@@ -28,6 +28,11 @@ class Watcher:
         self.rabbit_url = rabbit_url
         self.rabbit_connection =  BlockingConnection(ConnectionParameters(host=rabbit_url))
         
+        self.rabbit_connection.channel().queue_declare(
+            queue="gateway_callback_queue", durable=True)
+        
+        
+        
     def start(self):
         print("Sending subscribe message")
         future = self._send_subscribe_msg()
@@ -103,10 +108,9 @@ class Watcher:
                     
                 channel = self.rabbit_connection.channel()
                 
-                channel.queue_declare(queue=hash_value)
                 channel.basic_publish(exchange='',
-                                                routing_key=hash_value,
-                                                body="empty")
+                                                routing_key='gateway_callback_queue',
+                                                body=hash_value)
                 
                 print("Sended ack to route {}".format(hash_value))
                 
